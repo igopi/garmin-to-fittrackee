@@ -316,10 +316,8 @@ def fittrackee(
     if force:
         log.warning("Rewrite configuration file")
         Path(f"{config_path}/fittrackee.yml").unlink(missing_ok=True)
-    url = urlparse(fittrackee_domain)
-    if url.hostname:
-        fittrackee_domain = url.hostname
-    if not Fittrackee.is_instance_is_supported(host=fittrackee_domain):
+    fittrackee_info = urlparse(fittrackee_domain)
+    if not Fittrackee.is_instance_is_supported(host=fittrackee_info.geturl()):
         log.error(
             "Fittrackee instance isn't supported. "
             "Please update your Fittrackee instance"
@@ -329,7 +327,7 @@ def fittrackee(
         config_path=config_path,
         client_id=client_id,
         client_secret=client_secret,
-        host=fittrackee_domain,
+        host=fittrackee_info,
     )
 
 

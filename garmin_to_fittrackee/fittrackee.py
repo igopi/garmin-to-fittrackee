@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Union
+from urllib.parse import ParseResult, urlparse
 
 import pendulum
 import requests
@@ -22,7 +23,7 @@ class Fittrackee:
         config_path: str,
         client_id: str = None,
         client_secret: str = None,
-        host: str = None,
+        host: ParseResult = None,
         timezone: str = None,
         verify: bool = True,
     ):
@@ -45,7 +46,11 @@ class Fittrackee:
         log.debug("Saving data")
         data = {
             "fittrackee": {
-                "host": self.host,
+                "host": {
+                    "scheme": self.host.scheme or "https",
+                    "hostname": self.host.hostname,
+                    "port": self.host.port or 443
+                },
                 "client_id": self.client_id,
                 "client_secret": self.client_secret,
             },
@@ -74,8 +79,11 @@ class Fittrackee:
             self.tokens = config["tokens"]
             self.client_id = config["fittrackee"]["client_id"]
             self.client_secret = config["fittrackee"]["client_secret"]
-            self.host = config["fittrackee"]["host"]
-            self.api_url = f"https://{self.host}/api"
+            try:
+                self.host = urlparse(f'{config["fittrackee"]["host"]["scheme"]}//{config["fittrackee"]["host"]["hostname"]}:{config["fittrackee"]["host"]["port"]}')
+            except KeyError:
+                self.host = urlparse(config["fittrackee"]["host"])
+            self.api_url = f"{self.host.geturl()}/api"
 
     def __auth(self):
         """
@@ -93,10 +101,10 @@ class Fittrackee:
             return self.__get_refreshing_client()
 
     def __web_application_flow(self):
-        authorize_url = f"https://{self.host}/profile/apps/authorize"
-        self.api_url = f"https://{self.host}/api"
+        authorize_url = f"{self.host.geturl()}/profile/apps/authorize"
+        self.api_url = f"{self.host.geturl()}/api"
 
-        redirect_uri = "https://localhost/"
+        redirect_uri = f"{self.host.scheme}://localhost/"
         scope = "workouts:read workouts:write profile:read"
         oauth = OAuth2Session(self.client_id, redirect_uri=redirect_uri, scope=scope)
         authorization_url, state = oauth.authorization_url(authorize_url)
@@ -286,7 +294,7 @@ class Fittrackee:
     @staticmethod
     def get_instance_config(host: str):
         try:
-            r = requests.get(f"https://{host}/api/config")
+            r = requests.get(f"{host}/api/config")
             r.raise_for_status()
         except requests.exceptions.HTTPError as error:
             error_code = error.response.status_code
